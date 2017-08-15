@@ -3,6 +3,8 @@ image: Visual Studio 2017
 
 configuration:
   - Release
+environment:
+  PROJECT: toofz.NecroDancer.ImageManager
 cache:
   - packages -> **\packages.config
 notifications:
@@ -13,5 +15,5 @@ notifications:
 before_build:
   - appveyor-retry nuget restore -DisableParallelProcessing
 build:
-  project: toofz.NecroDancer.ImageManager.sln
+  project: $(PROJECT).sln
   verbosity: minimal
