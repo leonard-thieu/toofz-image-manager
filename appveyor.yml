@@ -17,7 +17,7 @@ assembly_info:
   assembly_version: $(appveyor_build_version)
 
 before_build:
-  - appveyor-retry nuget restore -DisableParallelProcessing
+  - appveyor-retry nuget restore -Verbosity quiet -NonInteractive
 build:
   project: $(PROJECT).sln
   verbosity: minimal
