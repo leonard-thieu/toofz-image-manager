@@ -1,10 +1,11 @@
 ﻿using System.Reflection;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("toofz NecroDancer Image Manager")]
-[assembly: AssemblyCompany("toofz")]
-[assembly: AssemblyProduct("toofz NecroDancer")]
-[assembly: AssemblyCopyright("Copyright © Leonard Thieu 2016")]
-[assembly: ComVisible(false)]
 [assembly: AssemblyVersion("2.0.0.0")]
-[assembly: AssemblyFileVersion("2.0.0.0")]
+
+[assembly: AssemblyCopyright("Copyright © Leonard Thieu 2017")]
+[assembly: AssemblyProduct("toofz")]
+
+[assembly: AssemblyTitle("toofz Image Manager")]
+
+[assembly: ComVisible(false)]
