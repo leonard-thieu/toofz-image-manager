@@ -4,7 +4,6 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
@@ -35,7 +34,6 @@ namespace toofz.NecroDancer.ImageManager
 
         static void Main(string[] args)
         {
-            ServicePointManager.DefaultConnectionLimit = 100;
             DataDirectory = args[0];
 
             var storageConnectionString = Util.GetEnvVar("toofzStorageConnectionString");
