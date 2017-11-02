@@ -1,260 +1,110 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.WindowsAzure.Storage;
-using Microsoft.WindowsAzure.Storage.Blob;
+using ImageMagick;
 using toofz.NecroDancer.Data;
 
 namespace toofz.NecroDancer.ImageManager
 {
-    static class Program
+    internal static class Program
     {
-        static string DataDirectory;
-
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
-            DataDirectory = args[0];
-
-            var storageConnectionString = Util.GetEnvVar("toofzStorageConnectionString");
-            var storageAccount = CloudStorageAccount.Parse(storageConnectionString);
-            var blobClient = storageAccount.CreateCloudBlobClient();
-            var container = blobClient.GetContainerReference("crypt");
-            container.CreateIfNotExists();
-            container.SetPermissions(new BlobContainerPermissions { PublicAccess = BlobContainerPublicAccessType.Blob });
-
-            RunAsync(container).Wait();
+            MainAsync(args).GetAwaiter().GetResult();
         }
 
-        static Task RunAsync(CloudBlobContainer container)
+        private static async Task MainAsync(string[] args)
         {
-            var path = Path.Combine(DataDirectory, "necrodancer.xml");
-            var data = NecroDancerDataSerializer.Read(path);
+            var dataDirectory = args[0];
 
-            var tasks = new List<Task>();
-
-            var itemImages = new List<ImageFile>();
-            foreach (var item in data.Items)
+            var serializer = new NecroDancerDataSerializer();
+            NecroDancerData data;
+            using (var fs = File.OpenRead(Path.Combine(dataDirectory, "necrodancer.xml")))
             {
-                var frames = GetImageFrames(item, "items");
-                itemImages.AddRange(frames);
+                data = serializer.Deserialize(fs);
             }
-            var itemTasks = from i in itemImages
-                            select UploadImageAsync(container, i);
-            tasks.AddRange(itemTasks);
 
-            var enemyImages = new List<ImageFile>();
+            var enemyImageFiles = new List<EnemyImageFiles>();
             foreach (var enemy in data.Enemies)
             {
-                var frames = GetImageFrames(enemy, "enemies");
-                enemyImages.AddRange(frames);
+                enemyImageFiles.Add(new EnemyImageFiles(dataDirectory, enemy));
             }
-            var enemyTasks = from e in enemyImages
-                             select UploadImageAsync(container, e);
-            tasks.AddRange(enemyTasks);
 
-            return Task.WhenAll(tasks);
-        }
+            var imageDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "images");
+            var enemiesDirectory = Path.Combine(imageDirectory, "enemies");
+            Directory.CreateDirectory(enemiesDirectory);
 
-        static IEnumerable<ImageFile> GetImageFrames(Item item, string directory)
-        {
-            if (item == null)
-                throw new ArgumentNullException(nameof(item));
-            if (item.ImagePath == null)
-                throw new ArgumentNullException(nameof(item.ImagePath));
-            if (item.ElementName == null)
-                throw new ArgumentNullException(nameof(item.ElementName));
-            if (item.FrameCount < 1)
-                throw new ArgumentException();
-            if (directory == null)
-                throw new ArgumentNullException(nameof(directory));
-
-            var frameCount = item.FrameCount;
-            var path = Path.Combine(DataDirectory, directory, item.ImagePath);
-            var baseName = Path.Combine(directory, item.ElementName);
-
-            return GetImages(baseName, frameCount, path);
-        }
-
-        static IEnumerable<ImageFile> GetImageFrames(Enemy enemy, string directory)
-        {
-            if (enemy == null)
-                throw new ArgumentNullException(nameof(enemy));
-            if (enemy.ImagePath == null)
-                throw new ArgumentNullException(nameof(enemy.ImagePath));
-            if (enemy.FrameCount < 1)
-                throw new ArgumentException();
-            if (directory == null)
-                throw new ArgumentNullException(nameof(directory));
-
-            var frameCount = enemy.FrameCount;
-            var path = Path.Combine(DataDirectory, enemy.ImagePath);
-            var baseName = Path.Combine(directory, enemy.ElementName + enemy.Type);
-
-            return GetImages(baseName, frameCount, path);
-        }
-
-        static IEnumerable<ImageFile> GetImages(string baseName, int frameCount, string path)
-        {
-            if (frameCount < 1)
-                throw new ArgumentException();
-            if (path == null)
-                throw new ArgumentNullException(nameof(path));
-
-            using (var image = Image.FromFile(path))
+            var tasks = new List<Task>();
+            foreach (var spritesheet in enemyImageFiles)
             {
-                // Items always have 2 rows of sprites. Each sprite is equally sized.
-                //   - Top:    Normal
-                //   - Bottom: Shadow
-                var width = image.Width / frameCount;
-                var height = image.Height / 2;
-                var destRect = new Rectangle(0, 0, width, height);
-                var extension = Path.GetExtension(path);
-
-                return GetImages(baseName, frameCount, image, width, height, extension);
-            }
-        }
-
-        static IEnumerable<ImageFile> GetImages(string baseName, int frameCount, Image image, int width, int height, string extension)
-        {
-            if (image == null)
-                throw new ArgumentNullException(nameof(image));
-
-            int srcX;
-            int srcY;
-            var imageFiles = new List<ImageFile>();
-
-            for (int y = 0; y < 2; y++)
-            {
-                srcY = y * height;
-
-                for (int x = 0; x < frameCount; x++)
+                var firstFrame = (from f in spritesheet.Enemy.Frames
+                                  where f.AnimType == "normal"
+                                  orderby f.InAnim
+                                  select spritesheet.Frames[f.InSheet - 1])
+                                  .FirstOrDefault();
+                if (firstFrame == null)
                 {
-                    srcX = x * width;
-                    var i = (y * frameCount) + x;
-
-                    var data = GetSpriteData(image, srcX, srcY, width, height);
-                    var defaultImage = new ImageFile(baseName, i, "d", extension, image.RawFormat.Guid, data);
-                    imageFiles.Add(defaultImage);
-                    var smallimage = ResizeImageSmall(baseName, defaultImage, extension);
-                    imageFiles.Add(smallimage);
-                    var mediumImage = ResizeImageMedium(baseName, defaultImage, extension);
-                    imageFiles.Add(mediumImage);
-                    var largeImage = ResizeImageLarge(baseName, defaultImage, extension);
-                    imageFiles.Add(largeImage);
+                    firstFrame = spritesheet.Frames.First();
                 }
+
+                var baseFileName = $"{spritesheet.Enemy.Name}{spritesheet.Enemy.Type}";
+                var filePath = Path.Combine(enemiesDirectory, $"{baseFileName}.png");
+                firstFrame.Save(filePath);
+
+                var gifTask = SaveAnimatedImage(enemiesDirectory, spritesheet);
+                tasks.Add(gifTask);
+            }
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+
+        private static Task SaveAnimatedImage(string enemiesDirectory, EnemyImageFiles spritesheet)
+        {
+            var frames = (from f in spritesheet.Enemy.Frames
+                          where f.AnimType == "normal"
+                          orderby f.InAnim
+                          select spritesheet.Frames[f.InSheet - 1])
+                          .ToList();
+            if (!frames.Any())
+            {
+                var frameCount = spritesheet.Frames.Count > 2 ? 2 : 1;
+                frames = spritesheet.Frames.Take(frameCount).ToList();
             }
 
-            return imageFiles;
-        }
+            var baseFileName = $"{spritesheet.Enemy.Name}{spritesheet.Enemy.Type}";
+            var filePath = Path.Combine(enemiesDirectory, $"{baseFileName}.gif");
 
-        static byte[] GetSpriteData(Image image, int srcX, int srcY, int width, int height)
-        {
-            if (image == null)
-                throw new ArgumentNullException(nameof(image));
-
-            using (var bitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb))
+            return Task.Run(() =>
             {
-
-                using (var g = Graphics.FromImage(bitmap))
-                using (var ms = new MemoryStream())
+                using (var collection = new MagickImageCollection())
                 {
-                    var br = new BinaryReader(ms);
-
-                    var destRect = new Rectangle(0, 0, width, height);
-                    g.DrawImage(image, destRect, srcX, srcY, width, height, GraphicsUnit.Pixel);
-                    bitmap.Save(ms, image.RawFormat);
-                    ms.Position = 0;
-
-                    return br.ReadBytes((int)ms.Length);
-                }
-            }
-        }
-
-        static ImageFile ResizeImageSmall(string sourceFileName, ImageFile image, string extension)
-        {
-            if (image == null)
-                throw new ArgumentNullException(nameof(image));
-
-            var data = ResizeImage(image.Data, 24, 24, 1);
-
-            return new ImageFile(sourceFileName, image.FrameIndex, "s", extension, image.Format, data);
-        }
-
-        static ImageFile ResizeImageMedium(string sourceFileName, ImageFile image, string extension)
-        {
-            if (image == null)
-                throw new ArgumentNullException(nameof(image));
-
-            var data = ResizeImage(image.Data, 36, 36, 1);
-
-            return new ImageFile(sourceFileName, image.FrameIndex, "m", extension, image.Format, data);
-        }
-
-        static ImageFile ResizeImageLarge(string sourceFileName, ImageFile image, string extension)
-        {
-            if (image == null)
-                throw new ArgumentNullException(nameof(image));
-
-            var data = ResizeImage(image.Data, 56, 56, float.MaxValue);
-
-            return new ImageFile(sourceFileName, image.FrameIndex, "l", extension, image.Format, data);
-        }
-
-        static byte[] ResizeImage(byte[] data, int width, int height, float minScale = 1)
-        {
-            if (data == null)
-                throw new ArgumentNullException(nameof(data));
-
-            using (var msIn = new MemoryStream())
-            {
-                var bw = new BinaryWriter(msIn);
-                bw.Write(data);
-
-                using (var image = Image.FromStream(msIn))
-                {
-                    var pageUnit = GraphicsUnit.Pixel;
-                    var srcRect = image.GetBounds(ref pageUnit);
-
-                    var scaleX = (float)width / image.Width;
-                    var scaleY = (float)height / image.Height;
-                    var scale = new[] { scaleX, scaleY, minScale }.Min();
-                    scale = Math.Max(scale, float.Epsilon);
-
-                    var destWidth = image.Width * scale;
-                    var destHeight = image.Height * scale;
-                    var destX = (width - destWidth) / 2;
-                    var destY = (height - destHeight) / 2;
-                    var destRect = new RectangleF(destX, destY, destWidth, destHeight);
-
-                    using (var bitmap = new Bitmap(width, height))
-                    using (var g = Graphics.FromImage(bitmap))
+                    var frameDelay = (int)((1.08 / frames.Count) * 100);
+                    foreach (var frame in frames)
                     {
-                        g.DrawImage(image, destRect, srcRect, pageUnit);
-
-                        using (var msOut = new MemoryStream())
+                        byte[] data = null;
+                        using (var ms = new MemoryStream())
                         {
-                            var br = new BinaryReader(msOut);
-                            bitmap.Save(msOut, image.RawFormat);
-                            msOut.Position = 0;
-
-                            return br.ReadBytes((int)msOut.Length);
+                            frame.Save(ms, System.Drawing.Imaging.ImageFormat.Bmp);
+                            data = ms.ToArray();
                         }
+                        var magickImage = new MagickImage(data);
+                        magickImage.AnimationDelay = frameDelay;
+                        collection.Add(magickImage);
                     }
-                }
-            }
-        }
 
-        static async Task UploadImageAsync(CloudBlobContainer container, ImageFile image)
-        {
-            var blockBlob = container.GetBlockBlobReference(image.Name);
-            blockBlob.Properties.ContentType = "image/png";
-            blockBlob.Properties.CacheControl = "max-age=604800";
-            await blockBlob.UploadFromByteArrayAsync(image.Data, 0, image.Data.Length);
-            Console.WriteLine($"Uploaded {image.Name}.");
+                    // Optionally reduce colors
+                    var settings = new QuantizeSettings();
+                    settings.Colors = 256;
+                    collection.Quantize(settings);
+
+                    // Optionally optimize the images (images should have the same size).
+                    collection.OptimizePlus();
+
+                    // Save gif
+                    collection.Write(filePath);
+                }
+            });
         }
     }
 }

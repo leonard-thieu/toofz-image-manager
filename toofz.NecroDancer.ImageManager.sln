@@ -1,10 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26430.16
+VisualStudioVersion = 15.0.27004.2006
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "toofz.NecroDancer.ImageManager", "toofz.NecroDancer.ImageManager\toofz.NecroDancer.ImageManager.csproj", "{664C8E30-7B77-43A8-A6A1-D625FF6A42CD}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{EAACC49E-390C-4D3E-A8A3-80ADBE48E3ED}"
 	ProjectSection(SolutionItems) = preProject
 		appveyor.yml = appveyor.yml
@@ -12,18 +10,23 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "toofz.NecroDancer.ImageManager", "toofz.NecroDancer.ImageManager\toofz.NecroDancer.ImageManager.csproj", "{021A79CE-FE83-44CD-9AF9-584C2F03F3FC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{664C8E30-7B77-43A8-A6A1-D625FF6A42CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{664C8E30-7B77-43A8-A6A1-D625FF6A42CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{664C8E30-7B77-43A8-A6A1-D625FF6A42CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{664C8E30-7B77-43A8-A6A1-D625FF6A42CD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{021A79CE-FE83-44CD-9AF9-584C2F03F3FC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{021A79CE-FE83-44CD-9AF9-584C2F03F3FC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{021A79CE-FE83-44CD-9AF9-584C2F03F3FC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{021A79CE-FE83-44CD-9AF9-584C2F03F3FC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A802EE07-277E-4E61-9163-FCDE663E3291}
 	EndGlobalSection
 EndGlobal
