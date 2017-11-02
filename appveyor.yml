@@ -1,12 +1,16 @@
 version: 2.2.0.{build}
 image: Visual Studio 2017
 
+branches:
+  only:
+    - master
 configuration:
   - Release
 environment:
+  APPVEYOR_CACHE_ENTRY_ZIP_ARGS: -t7z -m0=lzma -mx=9
   PROJECT: toofz.NecroDancer.ImageManager
 cache:
-  - packages -> **\packages.config
+  - '%USERPROFILE%\.nuget\packages'
 notifications:
   - provider: Slack
     incoming_webhook:
@@ -15,9 +19,12 @@ assembly_info:
   patch: true
   file: AssemblyInfo.cs
   assembly_version: $(appveyor_build_version)
+  
+install:
+  - nuget update -Self
 
 before_build:
-  - appveyor-retry nuget restore -Verbosity quiet -NonInteractive
+  - appveyor-retry nuget restore -Verbosity quiet
 build:
   project: $(PROJECT).sln
   verbosity: minimal
