@@ -18,8 +18,8 @@ namespace toofz.NecroDancer.ImageManager
         static void Main(string[] args)
         {
             DataDirectory = args[0];
+            var storageConnectionString = args[1];
 
-            var storageConnectionString = Util.GetEnvVar("toofzStorageConnectionString");
             var storageAccount = CloudStorageAccount.Parse(storageConnectionString);
             var blobClient = storageAccount.CreateCloudBlobClient();
             var container = blobClient.GetContainerReference("crypt");
@@ -32,7 +32,12 @@ namespace toofz.NecroDancer.ImageManager
         static Task RunAsync(CloudBlobContainer container)
         {
             var path = Path.Combine(DataDirectory, "necrodancer.xml");
-            var data = NecroDancerDataSerializer.Read(path);
+            var serializer = new NecroDancerDataSerializer();
+            NecroDancerData data = null;
+            using (var fs = File.OpenRead(path))
+            {
+                data = serializer.Deserialize(fs);
+            }
 
             var tasks = new List<Task>();
 
@@ -61,38 +66,18 @@ namespace toofz.NecroDancer.ImageManager
 
         static IEnumerable<ImageFile> GetImageFrames(Item item, string directory)
         {
-            if (item == null)
-                throw new ArgumentNullException(nameof(item));
-            if (item.ImagePath == null)
-                throw new ArgumentNullException(nameof(item.ImagePath));
-            if (item.ElementName == null)
-                throw new ArgumentNullException(nameof(item.ElementName));
-            if (item.FrameCount < 1)
-                throw new ArgumentException();
-            if (directory == null)
-                throw new ArgumentNullException(nameof(directory));
-
             var frameCount = item.FrameCount;
             var path = Path.Combine(DataDirectory, directory, item.ImagePath);
-            var baseName = Path.Combine(directory, item.ElementName);
+            var baseName = Path.Combine(directory, item.Name);
 
             return GetImages(baseName, frameCount, path);
         }
 
         static IEnumerable<ImageFile> GetImageFrames(Enemy enemy, string directory)
         {
-            if (enemy == null)
-                throw new ArgumentNullException(nameof(enemy));
-            if (enemy.ImagePath == null)
-                throw new ArgumentNullException(nameof(enemy.ImagePath));
-            if (enemy.FrameCount < 1)
-                throw new ArgumentException();
-            if (directory == null)
-                throw new ArgumentNullException(nameof(directory));
-
-            var frameCount = enemy.FrameCount;
-            var path = Path.Combine(DataDirectory, enemy.ImagePath);
-            var baseName = Path.Combine(directory, enemy.ElementName + enemy.Type);
+            var frameCount = enemy.SpriteSheet.FrameCount;
+            var path = Path.Combine(DataDirectory, enemy.SpriteSheet.Path);
+            var baseName = Path.Combine(directory, enemy.Name + enemy.Type);
 
             return GetImages(baseName, frameCount, path);
         }
